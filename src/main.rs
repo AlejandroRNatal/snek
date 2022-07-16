@@ -117,6 +117,7 @@ struct GameState {
     score: u32,
     state: State,
     player: Player,
+    fruit: Point,
     time: f64,
 }
 
@@ -126,6 +127,7 @@ impl GameState {
             score: 0,
             state: State::Running,
             player: Player::new(),
+            fruit: (rand::gen_range(0, SQUARES), rand::gen_range(0, SQUARES)),
             time: get_time(),
         }
     }
@@ -134,7 +136,8 @@ impl GameState {
         self.score = 0;
         self.state = State::Running;
         self.player.reset();
-        self.time = get_time(); 
+        self.time = get_time();
+        self.fruit = (rand::gen_range(0, SQUARES), rand::gen_range(0, SQUARES));
     }
 
     pub fn offset_y() -> f32 {
@@ -153,7 +156,7 @@ impl GameState {
         screen_width().min(screen_height()) 
     }
 
-    pub fn draw(&self, fruit: &Point){
+    pub fn draw(&self){
 
         clear_background(LIGHTGRAY);
 
@@ -183,8 +186,8 @@ impl GameState {
 
         self.player.draw();
         draw_rectangle(
-            Self::offset_x() + fruit.0 as f32 * Self::square_size(),
-            Self::offset_y() + fruit.1 as f32 * Self::square_size(),
+            Self::offset_x() + self.fruit.0 as f32 * Self::square_size(),
+            Self::offset_y() + self.fruit.1 as f32 * Self::square_size(),
             Self::square_size(),
             Self::square_size(),
             GOLD,
@@ -197,6 +200,24 @@ impl GameState {
             20.,
             DARKGRAY,
         );
+    }
+
+    pub fn listen_keyboard(&mut self){
+        if is_key_down(KeyCode::Right) && self.player.direction != Direction::Left {
+            self.player.direction = Direction::Right;    
+        }
+        
+        if is_key_down(KeyCode::Left) && self.player.direction != Direction::Right {
+            self.player.direction = Direction::Left;    
+        }
+
+        if is_key_down(KeyCode::Up) && self.player.direction != Direction::Down {
+            self.player.direction = Direction::Up;    
+        }
+
+        if is_key_down(KeyCode::Down) && self.player.direction != Direction::Up {
+            self.player.direction = Direction::Down;    
+        }
     }
 
     pub fn draw_game_over(&self) {
@@ -224,34 +245,19 @@ impl GameState {
 
 #[macroquad::main("Snekimus Maximus")]
 async fn main() {
-    let mut fruit: Point = (rand::gen_range(0, SQUARES), rand::gen_range(0, SQUARES));
     let mut game_state = GameState::new();
     
     loop {
-        if game_state.state != State::GameOver{
+        if game_state.state != State::GameOver {
 
-            if is_key_down(KeyCode::Right) && game_state.player.direction != Direction::Left {
-                game_state.player.direction = Direction::Right;    
-            }
-            
-            if is_key_down(KeyCode::Left) && game_state.player.direction != Direction::Right {
-                game_state.player.direction = Direction::Left;    
-            }
-
-            if is_key_down(KeyCode::Up) && game_state.player.direction != Direction::Down {
-                game_state.player.direction = Direction::Up;    
-            }
-
-            if is_key_down(KeyCode::Down) && game_state.player.direction != Direction::Up {
-                game_state.player.direction = Direction::Down;    
-            }
+            game_state.listen_keyboard();
 
             if get_time() - game_state.time > game_state.player.speed {
                 game_state.time = get_time();
                 game_state.player.r#move();
                 
-                if game_state.player.intersects(&fruit) {
-                    fruit = (rand::gen_range(0, SQUARES), rand::gen_range(0, SQUARES));
+                if game_state.player.intersects(&game_state.fruit) {
+                    game_state.fruit = (rand::gen_range(0, SQUARES), rand::gen_range(0, SQUARES));
                     game_state.score += 100;
                     game_state.player.speed *= 0.9;
                 }
@@ -269,22 +275,18 @@ async fn main() {
                         game_state.state = State::GameOver;
                     }
                 }
-
             } 
         
             // Draw logic here
-            game_state.draw(&fruit);
+            game_state.draw();
         }
 
         else {
-            
             game_state.draw_game_over();
 
             if is_key_down(KeyCode::Enter) {
-                fruit = (rand::gen_range(0, SQUARES), rand::gen_range(0, SQUARES));
                 game_state.reset();
             }
-
             else if is_key_down(KeyCode::Escape){
                 break;
             }
