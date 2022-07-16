@@ -73,6 +73,16 @@ impl Player {
         self.body = LinkedList::new();
     }
 
+    pub fn intersects(&self, other: &Point) -> bool {
+        self.position == *other
+    }
+
+    fn r#move(&mut self){
+        self.body.push_front(self.position);
+        self.position = (self.position.0 + Direction::from_direction(&self.direction).0,
+                         self.position.1 + Direction::from_direction(&self.direction).1);
+    }
+
     pub fn draw(&self) {
         let game_size = screen_width().min(screen_height());
         let offset_x  = (screen_width() - game_size)/2.0 + 10.0;
@@ -188,6 +198,28 @@ impl GameState {
             DARKGRAY,
         );
     }
+
+    pub fn draw_game_over(&self) {
+        clear_background(WHITE);
+            let text = "Game Over. Press [enter] to play again.";
+            let font_size = 30.;
+            let text_size = measure_text(text, None, font_size as _, 1.0);
+
+            draw_text(
+                text,
+                screen_width() / 2. - text_size.width / 2.,
+                screen_height() / 2. - text_size.height / 2.,
+                font_size,
+                DARKGRAY,
+            );
+    }
+
+    fn player_out_of_bounds(&self) -> bool{
+        self.player.position.0 < 0 ||
+        self.player.position.1 < 0 ||
+        self.player.position.0 >= SQUARES ||
+        self.player.position.1 >= SQUARES
+    }
 }
 
 #[macroquad::main("Snekimus Maximus")]
@@ -195,7 +227,6 @@ async fn main() {
     let mut fruit: Point = (rand::gen_range(0, SQUARES), rand::gen_range(0, SQUARES));
     let mut game_state = GameState::new();
     
-
     loop {
         if game_state.state != State::GameOver{
 
@@ -217,11 +248,9 @@ async fn main() {
 
             if get_time() - game_state.time > game_state.player.speed {
                 game_state.time = get_time();
-                game_state.player.body.push_front(game_state.player.position);
-                game_state.player.position = (game_state.player.position.0 + Direction::from_direction(&game_state.player.direction).0,
-                                            game_state.player.position.1 + Direction::from_direction(&game_state.player.direction).1);
-            
-                if game_state.player.position == fruit {
+                game_state.player.r#move();
+                
+                if game_state.player.intersects(&fruit) {
                     fruit = (rand::gen_range(0, SQUARES), rand::gen_range(0, SQUARES));
                     game_state.score += 100;
                     game_state.player.speed *= 0.9;
@@ -230,16 +259,13 @@ async fn main() {
                     game_state.player.body.pop_back();
                 }
                 
-                if  game_state.player.position.0 < 0 ||
-                    game_state.player.position.1 < 0 ||
-                    game_state.player.position.0 >= SQUARES ||
-                    game_state.player.position.1 >= SQUARES
+                if game_state.player_out_of_bounds()
                 {
-                        game_state.state = State::GameOver;    
+                    game_state.state = State::GameOver;    
                 }
 
                 for (x,y) in &game_state.player.body {
-                    if *x == game_state.player.position.0 && *y== game_state.player.position.1 {
+                    if game_state.player.intersects(&(*x,*y)) {    
                         game_state.state = State::GameOver;
                     }
                 }
@@ -251,18 +277,8 @@ async fn main() {
         }
 
         else {
-            clear_background(WHITE);
-            let text = "Game Over. Press [enter] to play again.";
-            let font_size = 30.;
-            let text_size = measure_text(text, None, font_size as _, 1.0);
-
-            draw_text(
-                text,
-                screen_width() / 2. - text_size.width / 2.,
-                screen_height() / 2. - text_size.height / 2.,
-                font_size,
-                DARKGRAY,
-            );
+            
+            game_state.draw_game_over();
 
             if is_key_down(KeyCode::Enter) {
                 fruit = (rand::gen_range(0, SQUARES), rand::gen_range(0, SQUARES));
